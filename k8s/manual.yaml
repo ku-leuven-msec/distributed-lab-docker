@@ -1,0 +1,26 @@
+# A manual (interactive) client in the cluster.
+#   kubectl apply -f k8s/manual.yaml
+#   kubectl attach -it manual        (type "help" or a command; Ctrl-C detaches)
+# After "quit" the pod stops; delete it and apply again to start a new one:
+#   kubectl delete pod manual
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: manual
+spec:
+  restartPolicy: Never
+  containers:
+    - name: client
+      image: cellstore:1.1
+      imagePullPolicy: IfNotPresent
+      stdin: true                  # keep standard input open (docker run -i)
+      tty: true                    # allocate a terminal     (docker run -t)
+      envFrom:
+        - configMapRef:
+            name: cellstore-clients
+      env:
+        - name: ROLE
+          value: client
+        - name: MODE
+          value: interactive

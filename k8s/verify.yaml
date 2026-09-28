@@ -1,0 +1,27 @@
+# The self-test as a Kubernetes Job: runs one pod to completion.
+#   kubectl apply -f k8s/verify.yaml
+#   kubectl wait --for=condition=complete job/verify --timeout=60s
+#   kubectl logs job/verify
+# To run it again: kubectl delete job verify, then apply again.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: verify
+spec:
+  backoffLimit: 0                  # do not retry: a failure should stay visible
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: verify
+          image: cellstore:1.1
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: cellstore-clients
+          env:
+            - name: ROLE
+              value: client
+            - name: MODE
+              value: verify

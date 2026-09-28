@@ -1,0 +1,75 @@
+# CellStore with Docker Compose: 3 partition servers, automated clients and a manual client.
+#
+#   docker compose up -d --scale client=20       start servers + 20 automated clients
+#   docker compose run --rm manual               start a manual (interactive) client
+#   docker compose run --rm -e MODE=verify manual   self-test
+#   docker compose down                          stop and remove everything
+#
+# Needs the image cellstore:1.1, i.e. the version with EXPORT_PORT (T1.4).
+#
+# Compose puts all services on one user-defined network (<project>_default).
+# On that network every service is reachable by its service name: p0, p1, p2, ...
+
+services:
+
+  # ---- servers: one service per partition ---------------------------------
+  p0:
+    image: cellstore:1.1
+    environment:
+      ROLE: server
+      PARTITION: "0"
+      PARTITIONS: "3"
+      REGISTRY_PORT: "1099"
+      EXPORT_PORT: "2099"            # fixed port for the remote object (not random)
+      # Address written into the stub: the service name, which every client
+      # on the Compose network can resolve.
+      JAVA_TOOL_OPTIONS: -Djava.rmi.server.hostname=p0
+
+  p1:
+    image: cellstore:1.1
+    environment:
+      ROLE: server
+      PARTITION: "1"
+      PARTITIONS: "3"
+      REGISTRY_PORT: "1099"
+      EXPORT_PORT: "2099"
+      JAVA_TOOL_OPTIONS: -Djava.rmi.server.hostname=p1
+
+  p2:
+    image: cellstore:1.1
+    environment:
+      ROLE: server
+      PARTITION: "2"
+      PARTITIONS: "3"
+      REGISTRY_PORT: "1099"
+      EXPORT_PORT: "2099"
+      JAVA_TOOL_OPTIONS: -Djava.rmi.server.hostname=p2
+
+  # ---- automated clients: one service, scaled with --scale client=N ----------
+  client:
+    image: cellstore:1.1
+    # Start the clients after the servers. Note: Compose only waits until the
+    # server containers are *running*, not until their registries accept
+    # connections.
+    depends_on: [p0, p1, p2]
+    # A client whose first lookup fails exits; Docker then starts it again.
+    restart: on-failure
+    environment:
+      ROLE: client
+      MODE: auto
+      SERVERS: p0:1099,p1:1099,p2:1099   # entry i = registry of partition i
+      JAVA_TOOL_OPTIONS: -Xmx64m          # small heap: there are many clients
+
+  # ---- manual client: not started by "up", only by "docker compose run" ------
+  manual:
+    image: cellstore:1.1
+    profiles: [tools]
+    depends_on: [p0, p1, p2]
+    stdin_open: true                 # keep standard input open (docker run -i)
+    tty: true                        # allocate a terminal     (docker run -t)
+    environment:
+      ROLE: client
+      MODE: interactive
+      SERVERS: p0:1099,p1:1099,p2:1099
+
+# Note: there is no "ports:" section anywhere.

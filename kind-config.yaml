@@ -1,0 +1,7 @@
+# Two-node kind cluster: one control plane, one worker.
+# Create it with:  kind create cluster --name ds-lab --config kind-config.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+  - role: worker

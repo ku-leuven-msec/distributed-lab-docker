@@ -1,0 +1,34 @@
+# The automated clients: a Deployment of 20 identical pods.
+#
+# Unlike the servers, clients need no stable identity: any client can be
+# replaced by any other. A Deployment keeps the requested number of pods
+# running and gives them random names (cellstore-client-7d9f...-x2kqp).
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cellstore-client
+spec:
+  replicas: 20
+  selector:
+    matchLabels:
+      app: cellstore-client
+  template:
+    metadata:
+      labels:
+        app: cellstore-client
+    spec:
+      containers:
+        - name: client
+          image: cellstore:1.1
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: cellstore-clients    # SERVERS, from config.yaml
+          env:
+            - name: ROLE
+              value: client
+            - name: MODE
+              value: auto
+            - name: JAVA_TOOL_OPTIONS
+              value: -Xmx64m               # small heap: there are many clients

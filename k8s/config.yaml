@@ -1,0 +1,12 @@
+# Configuration shared by all clients (automated, manual and verify).
+# Every client container gets each key below as an environment variable
+# (see "envFrom" in clients.yaml, manual.yaml and verify.yaml).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cellstore-clients
+data:
+  # Registries of the servers, in partition order: entry i = partition i.
+  # TODO: fill in, like SERVERS in compose.yaml. The DNS names of the server
+  # pods are explained in the header of servers.yaml.
+  SERVERS: "???"

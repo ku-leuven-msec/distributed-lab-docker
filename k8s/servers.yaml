@@ -1,0 +1,81 @@
+# The three CellStore servers: a headless Service plus a StatefulSet.
+#
+# A StatefulSet named "cellstore" with 3 replicas creates the pods
+#   cellstore-0, cellstore-1, cellstore-2
+# and keeps these names: a pod that dies is replaced by a new pod with the
+# same name (but a new IP address). Pod cellstore-i owns partition i.
+#
+# Because the StatefulSet is governed by the headless Service "cellstore",
+# every pod also gets a stable DNS name inside the cluster:
+#   cellstore-0.cellstore   cellstore-1.cellstore   cellstore-2.cellstore
+# (full form: cellstore-0.cellstore.default.svc.cluster.local)
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: cellstore
+spec:
+  clusterIP: None                  # "headless": no virtual IP, no load balancing;
+                                   # DNS returns the pods themselves
+  selector:
+    app: cellstore-server          # the pods this Service is about
+  ports:
+    - name: registry
+      port: 1099
+    - name: object
+      port: 2099
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: cellstore
+spec:
+  serviceName: cellstore           # the headless Service above
+  replicas: 3
+  podManagementPolicy: Parallel    # start all pods at once, not one by one
+  selector:
+    matchLabels:
+      app: cellstore-server
+  template:                        # every pod is created from this template
+    metadata:
+      labels:
+        app: cellstore-server
+    spec:
+      containers:
+        - name: server
+          image: cellstore:1.1
+          # Use the image loaded into the cluster with "kind load docker-image";
+          # only try to download it if it is not there.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: registry
+              containerPort: 1099
+            - name: object
+              containerPort: 2099
+          env:
+            - name: ROLE
+              value: server
+            - name: PARTITIONS
+              value: "3"
+            - name: REGISTRY_PORT
+              value: "1099"
+            - name: EXPORT_PORT
+              value: "2099"
+            # All pods share this template, so PARTITION cannot be a constant.
+            # The downward API passes the pod's own index (0, 1, 2), which the
+            # StatefulSet stores in the label apps.kubernetes.io/pod-index.
+            - name: PARTITION
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['apps.kubernetes.io/pod-index']
+            # The pod's own name (cellstore-0, cellstore-1, ...).
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            # Address written into this server's stub. Kubernetes replaces
+            # $(POD_NAME) by the value of the variable POD_NAME defined above.
+            # TODO: which name must the stub contain so that every client in
+            # the cluster can reach this pod? (See N4 and C1.)
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Djava.rmi.server.hostname=$(POD_NAME).cellstore"
