@@ -78,4 +78,4 @@ spec:
             # TODO: which name must the stub contain so that every client in
             # the cluster can reach this pod? (See N4 and C1.)
             - name: JAVA_TOOL_OPTIONS
-              value: "-Djava.rmi.server.hostname=$(POD_NAME).cellstore"
+              value: #TODO
